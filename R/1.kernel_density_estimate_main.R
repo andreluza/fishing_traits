@@ -9,6 +9,7 @@
 # ===========================================
 
 # load kernel density function cl
+rm(list=ls())
 source("R/packages.R")
 source("R/functions_kernel.R")
 
@@ -19,6 +20,28 @@ dir.create ("output")
 # load your data
 data <- read.csv(here ("data","Table_R_oficial.csv"), header=TRUE, sep = ",",
                  fileEncoding="latin1")
+
+# ===============================
+# descriptive information
+
+# number of taxa
+length(data$Species[(grep("_sp\\.",data$Species, value=F))]) # genus level
+nrow(data)-length(data$Species[(grep("_sp\\.",data$Species, value=F))]) # species level
+
+# per taxonomic group
+table(data$Type)
+
+# per period
+sum(data$Sambaquis)# prehistoric
+sum(data$Colonial) # colonial
+sum(data$Present) # modern
+
+# taxa found in all periods
+data %>%
+  filter (Sambaquis == 1 &
+          Colonial == 1 &
+          Present == 1) %>%
+  nrow()
 
 # Community
 comunidade <- data[,c("Species","Sambaquis","Colonial","Present","All_periods")]
@@ -55,6 +78,7 @@ all_traits_spp$Vertical_position <- ordered (all_traits_spp$Vertical_position)
 all_traits_spp$Habitat_use.1 <- ordered (all_traits_spp$Habitat_use.1)
 all_traits_spp$Mobility <- ordered (all_traits_spp$Mobility)
 all_traits_spp$Group_size <- ordered (all_traits_spp$Group_size)
+
 
 # gawdis  
 # help here: https://cran.r-project.org/web/packages/gawdis/vignettes/gawdis.html
@@ -142,6 +166,39 @@ quantitative_traits$Trophic_category [which(quantitative_traits$Trophic_category
 quantitative_traits$Trophic_category [which(quantitative_traits$Trophic_category == "MCAR")] <- 7
 quantitative_traits$Trophic_category <- as.numeric(quantitative_traits$Trophic_category ) #as.numeric
 # apply (quantitative_traits,2,class)   #para ver a classe de todos os traits
+
+# add periods
+#rownames(quantitative_traits) == data$Species
+quantitative_traits_period <- cbind (quantitative_traits,
+                                     data [,c("Sambaquis","Colonial","Present")]) 
+# prepare data to plot
+plot_data <- quantitative_traits_period %>%
+  melt(id.vars =c("Sambaquis","Colonial","Present")) %>%
+  filter (variable != "Max_size_cm") %>%
+  mutate(trait_value=value,
+         trait = variable) %>%
+  select(-value) %>%
+  select(-variable) %>%
+  melt(id.vars = c("trait","trait_value")) %>%
+  filter (value !=0)
+plot_data$trait <- droplevels(plot_data$trait)
+
+# trait histograms
+# Criar o histograma com a curva de densidade
+ggplot(plot_data,
+         
+       aes(x = trait_value)) +
+  geom_histogram(aes(y = ..density.., fill=variable,colour=variable),
+                 position = position_dodge(width=0.3),
+                 alpha=0.7) +
+  geom_density(data = subset(plot_data, trait == tail(unique(plot_data$trait), 1)), 
+               aes(colour = variable), method = "auto") +
+  facet_wrap(~trait,nrow=2,scale="free")+
+  scale_fill_viridis_d() + 
+  scale_colour_viridis_d() + 
+  theme_minimal()+
+  theme (legend.position = c(0.93,0.35),
+         legend.key.size = unit(0.4,"cm")) 
 
 
 # test the correlation between traits
@@ -326,7 +383,7 @@ kde_period <- lapply (c("Sambaquis", "Colonial", "Current","All periods"), funct
 
 ###############################
 ### Plots
-
+### Fig. 1
 # plot one particular period
 kde_period[[1]]$plot +  xlab ("Axis I") + ylab ("Axis II")+ theme(legend.position = "top")
 kde_period[[2]]$plot +  xlab ("Axis I") + ylab ("Axis II")+ theme(legend.position = "top")
@@ -369,6 +426,8 @@ names(den_mi_d1) <- c("x", "y", "z")
 dimnames(den_mi_d1$z) <- list(den_mi_d1$x, den_mi_d1$y)
 dcc_mi_d1_whole <- melt(den_mi_d1$z)
 
+# number of cells with non-zero density
+table(dcc_mi_d1_whole$value>0)
 
 # ---------------------------------------
 
@@ -713,6 +772,8 @@ diff_periods$var <- factor(diff_periods$var,
                                       "Sambaquis vs Colonial",
                                       "Colonial vs Current"))
 
+diff_periods$val <- round(as.numeric(diff_periods$val),2)
+diff_periods
 # plot_diff 
 # observed area
 plot_area <- ggplot (diff_periods [-grep ("vs", diff_periods$var),], 
@@ -740,7 +801,7 @@ plot_diff <- ggplot (diff_periods [grep ("vs", diff_periods$var),],
   coord_flip()
 
 
-# save results
+# save results - FIg. 2
 pdf (here ("output","plot1.pdf"),width = 12,height=8)
 
 # arrange plot
