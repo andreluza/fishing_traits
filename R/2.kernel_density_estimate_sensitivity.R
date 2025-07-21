@@ -10,6 +10,7 @@
 # ===========================================
 
 # load kernel density function cl
+rm(list=ls())
 source("R/packages.R")
 source("R/functions_kernel.R")
 
@@ -19,7 +20,6 @@ data <- read.csv(here ("data","Table_R_oficial.csv"), header=TRUE, sep = ",",
                  fileEncoding="latin1")
 # remove cetaceans
 data <- data [which(data$Type != "Cetacea"),] # reduction of 20 spp
-
 
 # average body size
 mean(as.numeric(data$Max_size_cm),na.rm=T)
